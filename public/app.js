@@ -17,7 +17,7 @@
     screen: 0,
     answers: {
       role: '', industry: '', location: '', tasks: [], otherTasks: '', tools: [], otherTool: '', goals: [],
-      briefingTime: '08:00', digestDay: 'Monday', extraAskFirst: ['delete'], usageSaver: false
+      briefingTime: '08:00', briefingDays: 'weekdays', digestFreq: 'weekly', digestDays: ['Monday'], extraAskFirst: ['delete'], usageSaver: false
     },
     bots: [], allBots: [], allCustom: [], botsKey: '',
     templates: [], allTemplates: [],
@@ -100,10 +100,69 @@
     });
     var bt = $('#briefingTime');
     L.timeOptions().forEach(function (o) { bt.appendChild(el('option', { value: o.value, text: o.label })); });
-    bt.appendChild(el('option', { value: 'none', text: 'No daily briefing' }));
-    var dd = $('#digestDay');
-    L.DAYS.forEach(function (d) { dd.appendChild(el('option', { value: d, text: d + 's' })); });
-    dd.appendChild(el('option', { value: 'none', text: 'No weekly digest' }));
+    bt.appendChild(el('option', { value: 'none', text: 'No briefing' }));
+    function dayChips(name, type) {
+      var box = $('[data-days="' + name + '"]');
+      if (!box) return;
+      L.DAYS.forEach(function (d) {
+        var id = name + '-' + d;
+        box.appendChild(el('label', { className: 'day-chip', for: id }, [
+          el('input', { type: type, id: id, name: name, value: d, 'aria-label': d }),
+          el('span', { 'aria-hidden': 'true', text: d.slice(0, 3) })
+        ]));
+      });
+    }
+    dayChips('briefingCustomDays', 'checkbox');
+    dayChips('digestWeeklyDay', 'radio');
+    dayChips('digestCustomDays', 'checkbox');
+  }
+
+  function selectedDays(name) {
+    return L.DAYS.filter(function (d) {
+      var i = $('[data-days="' + name + '"] input[value="' + d + '"]');
+      return i && i.checked;
+    });
+  }
+
+  function setRadio(name, value) {
+    $$('input[name="' + name + '"]').forEach(function (i) { i.checked = i.value === value; });
+  }
+
+  function setDayChecks(name, days) {
+    var list = days || [];
+    $$('input[name="' + name + '"]').forEach(function (i) { i.checked = list.indexOf(i.value) !== -1; });
+  }
+
+  function briefingDaysMode(a) {
+    return (a.briefingDays === 'everyday' || a.briefingDays === 'weekdays') ? a.briefingDays : 'custom';
+  }
+
+  function defaultCustomBriefingDays(a) {
+    if (Array.isArray(a.briefingDays) && a.briefingDays.length) return a.briefingDays.slice();
+    if (a.briefingDays === 'everyday') return L.DAYS.slice();
+    return L.WEEKDAYS.slice();
+  }
+
+  function syncScheduleControls() {
+    var a = state.answers;
+    var bt = $('#briefingTime');
+    if (bt) bt.value = a.briefingTime;
+    var bMode = briefingDaysMode(a);
+    setRadio('briefingDays', bMode);
+    setDayChecks('briefingCustomDays', bMode === 'custom' ? a.briefingDays : []);
+    var hasBriefing = a.briefingTime !== 'none';
+    var bWrap = $('#briefing-days-wrap');
+    var bCustom = $('#briefing-custom-days');
+    if (bWrap) bWrap.hidden = !hasBriefing;
+    if (bCustom) bCustom.hidden = !hasBriefing || bMode !== 'custom';
+
+    setRadio('digestFreq', a.digestFreq || 'weekly');
+    setDayChecks('digestWeeklyDay', a.digestFreq === 'weekly' ? a.digestDays : []);
+    setDayChecks('digestCustomDays', a.digestFreq === 'custom' ? a.digestDays : []);
+    var wDay = $('#digest-weekly-day');
+    var cDay = $('#digest-custom-days');
+    if (wDay) wDay.hidden = a.digestFreq !== 'weekly';
+    if (cDay) cDay.hidden = a.digestFreq !== 'custom';
   }
 
   function syncControlsFromState() {
@@ -112,8 +171,7 @@
       $$('input[name="' + k + '"]').forEach(function (i) { i.checked = a[k].indexOf(i.value) !== -1; });
     });
     $$('input[name="extra"]').forEach(function (i) { i.checked = a.extraAskFirst.indexOf(i.value) !== -1; });
-    $('#briefingTime').value = a.briefingTime;
-    $('#digestDay').value = a.digestDay;
+    syncScheduleControls();
     ['role', 'industry', 'location', 'otherTasks', 'otherTool'].forEach(function (k) { if ($('#' + k)) $('#' + k).value = a[k] || ''; });
     updateTaskLimit();
     $('#otherTool-field').hidden = a.tools.indexOf('other') === -1;
@@ -153,8 +211,36 @@
       if (key === 'tools') $('#otherTool-field').hidden = a.tools.indexOf('other') === -1;
       if (key === 'goals' && currentStep() === 2) $('[data-action="next"]').textContent = a.goals.length ? 'Next' : 'Skip';
       updateHash();
-    } else if (t.id === 'briefingTime' || t.id === 'digestDay') {
-      a[t.id] = t.value; updateHash();
+    } else if (t.id === 'briefingTime') {
+      a.briefingTime = t.value;
+      syncScheduleControls();
+      updateHash();
+    } else if (t.name === 'briefingDays') {
+      a.briefingDays = t.value === 'custom' ? defaultCustomBriefingDays(a) : t.value;
+      syncScheduleControls();
+      updateHash();
+    } else if (t.name === 'briefingCustomDays') {
+      var bDays = selectedDays('briefingCustomDays');
+      if (!bDays.length) { t.checked = true; bDays = [t.value]; }
+      a.briefingDays = bDays;
+      updateHash();
+    } else if (t.name === 'digestFreq') {
+      a.digestFreq = t.value;
+      if (t.value === 'weekly') {
+        a.digestDays = [a.digestDays && a.digestDays[0] ? a.digestDays[0] : 'Monday'];
+      } else if (t.value === 'custom') {
+        if (!a.digestDays || !a.digestDays.length) a.digestDays = ['Monday'];
+      }
+      syncScheduleControls();
+      updateHash();
+    } else if (t.name === 'digestWeeklyDay') {
+      a.digestDays = [t.value];
+      updateHash();
+    } else if (t.name === 'digestCustomDays') {
+      var dDays = selectedDays('digestCustomDays');
+      if (!dDays.length) { t.checked = true; dDays = [t.value]; }
+      a.digestDays = dDays;
+      updateHash();
     } else if (t.id === 'usage-saver') {
       a.usageSaver = !!t.checked;
       updateHash();
@@ -915,7 +1001,7 @@
 
   /* ---------- Wiring ---------- */
   function restart() {
-    state.answers = { role: '', industry: '', location: '', tasks: [], otherTasks: '', tools: [], otherTool: '', goals: [], briefingTime: '08:00', digestDay: 'Monday', extraAskFirst: ['delete'], usageSaver: false };
+    state.answers = { role: '', industry: '', location: '', tasks: [], otherTasks: '', tools: [], otherTool: '', goals: [], briefingTime: '08:00', briefingDays: 'weekdays', digestFreq: 'weekly', digestDays: ['Monday'], extraAskFirst: ['delete'], usageSaver: false };
     state.bots = []; state.allBots = []; state.allCustom = []; state.botsKey = '';
     state.templates = []; state.allTemplates = []; state.subscribed = false;
     state.smartBots = []; state.smartTemplates = []; state.smartIncluded = true; state.smartMessage = '';

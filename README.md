@@ -46,7 +46,10 @@ Change `APP_NAME` in `public/brand.js` and `"name"` in `wrangler.jsonc`; static 
 - **Email is optional (Shanda's decision, November 20, 2026):** no login, and the prompt, checklist, and next
   steps appear right after Review. Joining the list is a separate opt-in on the output screen; the prompt never
   depends on it. `POST /api/subscribe` is unchanged. The share link (URL hash) carries selections only, never
-  the email, names, or which templates you removed.
+  the email, names, or which templates you removed. Older links that used a single weekly digest day still work.
+- Check-ins: the briefing can be every day, weekdays, or custom days, plus a time (or off). Updates and digests
+  can be none, daily, weekdays, weekly (one day), or custom days. If a digest lands at the same time as a
+  briefing, it is scheduled 30 minutes later. Times in the prompt are in the person's local time zone.
 - Suggested templates (always including Dr. Eggbot, plus up to three matches) count toward the hard cap of 10.
   Usage Saver is an optional add-on and never counts toward that cap, so it can be turned on even when the crew
   is already at 10. The prompt asks your bot to look templates up in Bot templates and offer an import link;

@@ -154,16 +154,72 @@
       <h1 id="h-3" tabindex="-1">How should your bots check in?</h1>
       <fieldset>
         <legend>How often to hear from your bots</legend>
-        <div class="field-row">
+
+        <fieldset class="schedule-block">
+          <legend>Briefing</legend>
+          <p class="hint">A short check-in at this time, on the days you pick.</p>
           <div class="field">
-            <label for="briefingTime">Daily briefing (weekdays)</label>
+            <label for="briefingTime">Time</label>
             <select id="briefingTime" name="briefingTime"></select>
           </div>
-          <div class="field">
-            <label for="digestDay">Weekly digest</label>
-            <select id="digestDay" name="digestDay"></select>
+          <div id="briefing-days-wrap">
+            <p class="field-label" id="briefing-days-label">Days</p>
+            <div class="choice-row" role="radiogroup" aria-labelledby="briefing-days-label">
+              <label class="check" for="briefingDays-everyday">
+                <input type="radio" id="briefingDays-everyday" name="briefingDays" value="everyday">
+                <span>Every day</span>
+              </label>
+              <label class="check" for="briefingDays-weekdays">
+                <input type="radio" id="briefingDays-weekdays" name="briefingDays" value="weekdays">
+                <span>Weekdays</span>
+              </label>
+              <label class="check" for="briefingDays-custom">
+                <input type="radio" id="briefingDays-custom" name="briefingDays" value="custom">
+                <span>Custom days</span>
+              </label>
+            </div>
+            <div id="briefing-custom-days" hidden>
+              <p class="field-label" id="briefing-custom-label">Pick days</p>
+              <div class="day-chips" data-days="briefingCustomDays" role="group" aria-labelledby="briefing-custom-label"></div>
+            </div>
           </div>
-        </div>
+        </fieldset>
+
+        <fieldset class="schedule-block">
+          <legend>Updates and digests</legend>
+          <p class="hint">Project status, research, and other recaps. If a digest lands at the same time as a briefing, it runs 30 minutes later.</p>
+          <p class="field-label" id="digest-freq-label">How often</p>
+          <div class="choice-row" role="radiogroup" aria-labelledby="digest-freq-label">
+            <label class="check" for="digestFreq-none">
+              <input type="radio" id="digestFreq-none" name="digestFreq" value="none">
+              <span>None</span>
+            </label>
+            <label class="check" for="digestFreq-daily">
+              <input type="radio" id="digestFreq-daily" name="digestFreq" value="daily">
+              <span>Daily</span>
+            </label>
+            <label class="check" for="digestFreq-weekdays">
+              <input type="radio" id="digestFreq-weekdays" name="digestFreq" value="weekdays">
+              <span>Weekdays</span>
+            </label>
+            <label class="check" for="digestFreq-weekly">
+              <input type="radio" id="digestFreq-weekly" name="digestFreq" value="weekly">
+              <span>Weekly</span>
+            </label>
+            <label class="check" for="digestFreq-custom">
+              <input type="radio" id="digestFreq-custom" name="digestFreq" value="custom">
+              <span>Custom days</span>
+            </label>
+          </div>
+          <div id="digest-weekly-day" hidden>
+            <p class="field-label" id="digest-weekly-label">On which day</p>
+            <div class="day-chips" data-days="digestWeeklyDay" role="radiogroup" aria-labelledby="digest-weekly-label"></div>
+          </div>
+          <div id="digest-custom-days" hidden>
+            <p class="field-label" id="digest-custom-label">Pick days</p>
+            <div class="day-chips" data-days="digestCustomDays" role="group" aria-labelledby="digest-custom-label"></div>
+          </div>
+        </fieldset>
       </fieldset>
       <fieldset>
         <legend>Your bots must always ask before</legend>

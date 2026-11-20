@@ -70,6 +70,9 @@
   ];
 
   var DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  var WEEKDAYS = DAYS.slice(0, 5);
+  var WEEKENDS = DAYS.slice(5);
+  var DIGEST_FREQS = ['none', 'daily', 'weekdays', 'weekly', 'custom'];
 
   /* Connector catalog. Names are hedged: the bot checks what actually exists. */
   var CONNECTORS = {
@@ -153,7 +156,7 @@
       });
     };
     var briefing = a.briefingTime === undefined ? '08:00' : a.briefingTime;
-    var digest = a.digestDay === undefined ? 'Monday' : a.digestDay;
+    var digest = normalizeDigest(a);
     return {
       role: cleanText(a.role, 60),
       industry: cleanText(a.industry, 60),
@@ -164,7 +167,9 @@
       otherTool: cleanText(a.otherTool, 40),
       goals: ids(a.goals, GOALS),
       briefingTime: formatTime(briefing) ? briefing : 'none',
-      digestDay: has(DAYS, digest) ? digest : 'none',
+      briefingDays: normalizeBriefingDays(a.briefingDays),
+      digestFreq: digest.freq,
+      digestDays: digest.days,
       extraAskFirst: ids(a.extraAskFirst, EXTRA_ASK_FIRST)
     };
   }
@@ -313,25 +318,145 @@
     return (h < 10 ? '0' : '') + h + ':' + (min < 10 ? '0' : '') + min;
   }
 
-  /** True when the weekly digest falls on a weekday that also has a daily briefing. */
-  function digestSameDayAsBriefing(n) {
-    return n.briefingTime !== 'none' && n.digestDay !== 'none' &&
-      n.digestDay !== 'Saturday' && n.digestDay !== 'Sunday';
+  function sameDays(a, b) {
+    if (!a || !b || a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
   }
 
-  /** Weekly digest time; 30 minutes after the daily briefing when they land on the same day. */
-  function digestTime(n) {
-    if (n.briefingTime === 'none') return '9:00 AM';
-    var t = digestSameDayAsBriefing(n) ? addMinutes(n.briefingTime, 30) : n.briefingTime;
-    return formatTime(t);
+  /** Catalog-ordered unique day names from an array or a dotted/comma string. */
+  function parseDays(val) {
+    var raw = [];
+    if (Array.isArray(val)) raw = val;
+    else if (typeof val === 'string') raw = val.split(/[.,]/);
+    else return [];
+    var seen = {};
+    var out = [];
+    raw.forEach(function (d) {
+      d = String(d || '').trim();
+      if (has(DAYS, d) && !seen[d]) { seen[d] = true; out.push(d); }
+    });
+    return DAYS.filter(function (d) { return has(out, d); });
   }
+
+  /** 'everyday' | 'weekdays' | Day[]. Defaults to weekdays (the old implicit briefing). */
+  function normalizeBriefingDays(val) {
+    if (val === undefined || val === null || val === '') return 'weekdays';
+    if (val === 'everyday' || val === 'daily' || val === 'every') return 'everyday';
+    if (val === 'weekdays') return 'weekdays';
+    var days = parseDays(val);
+    if (!days.length) return 'weekdays';
+    if (sameDays(days, DAYS)) return 'everyday';
+    if (sameDays(days, WEEKDAYS)) return 'weekdays';
+    return days;
+  }
+
+  /** Accepts the new digestFreq/digestDays fields, or a legacy single digestDay. */
+  function normalizeDigest(a) {
+    a = a || {};
+    var freq = a.digestFreq;
+    var days = parseDays(a.digestDays);
+    if (freq === undefined && a.digestDay !== undefined) {
+      if (a.digestDay === 'none' || a.digestDay === '') return { freq: 'none', days: [] };
+      if (has(DAYS, a.digestDay)) return { freq: 'weekly', days: [a.digestDay] };
+      var legacy = parseDays(a.digestDay);
+      if (legacy.length === 1) return { freq: 'weekly', days: legacy };
+      if (legacy.length > 1) return { freq: 'custom', days: legacy };
+      return { freq: 'none', days: [] };
+    }
+    if (freq === undefined) return { freq: 'weekly', days: ['Monday'] };
+    if (!has(DIGEST_FREQS, freq)) return { freq: 'none', days: [] };
+    if (freq === 'none' || freq === 'daily' || freq === 'weekdays') return { freq: freq, days: [] };
+    if (freq === 'weekly') return { freq: 'weekly', days: [days[0] || 'Monday'] };
+    if (!days.length) return { freq: 'none', days: [] };
+    if (days.length === 1) return { freq: 'weekly', days: days };
+    return { freq: 'custom', days: days };
+  }
+
+  function briefingDaysOf(n) {
+    if (!n || n.briefingTime === 'none') return [];
+    if (n.briefingDays === 'everyday') return DAYS.slice();
+    if (n.briefingDays === 'weekdays' || n.briefingDays == null) return WEEKDAYS.slice();
+    return parseDays(n.briefingDays);
+  }
+
+  function digestDaysOf(n) {
+    if (!n) return [];
+    if (n.digestFreq === 'none') return [];
+    if (n.digestFreq === 'daily') return DAYS.slice();
+    if (n.digestFreq === 'weekdays') return WEEKDAYS.slice();
+    if (n.digestFreq === 'weekly' || n.digestFreq === 'custom') return parseDays(n.digestDays);
+    return [];
+  }
+
+  /** Natural day wording: 'Every day', 'Weekdays', 'Mondays and Thursdays'. */
+  function formatDaysPhrase(days) {
+    var sorted = parseDays(days);
+    if (!sorted.length) return '';
+    if (sameDays(sorted, DAYS)) return 'Every day';
+    if (sameDays(sorted, WEEKDAYS)) return 'Weekdays';
+    if (sameDays(sorted, WEEKENDS)) return 'Weekends';
+    return andList(sorted.map(function (d) { return d + 's'; }));
+  }
+
+  /** 'Weekdays at 8:00 AM', 'Mondays and Thursdays at 8:00 AM', 'Every day at 7:30 AM'. */
+  function formatSchedule(days, timeLabel) {
+    var phrase = formatDaysPhrase(days);
+    if (!phrase || !timeLabel) return '';
+    return phrase + ' at ' + timeLabel;
+  }
+
+  /** Digest clock time (HH:MM) on a given day; +30 minutes when a briefing lands on the same day. */
+  function digestTimeOnDay(n, day) {
+    if (!n || n.briefingTime === 'none') return '09:00';
+    return has(briefingDaysOf(n), day) ? addMinutes(n.briefingTime, 30) : n.briefingTime;
+  }
+
+  function groupDaysByTime(n, days) {
+    var map = {}, order = [];
+    parseDays(days).forEach(function (day) {
+      var t = formatTime(digestTimeOnDay(n, day));
+      if (!map[t]) { map[t] = []; order.push(t); }
+      map[t].push(day);
+    });
+    order.sort(function (a, b) {
+      return DAYS.indexOf(map[a][0]) - DAYS.indexOf(map[b][0]);
+    });
+    return order.map(function (t) { return { days: map[t], timeLabel: t }; });
+  }
+
+  function isWeeklyDigest(n) {
+    return n && n.digestFreq === 'weekly';
+  }
+
+  function digestWhat(n, weeklyWhat) {
+    var text = String(weeklyWhat || '');
+    if (isWeeklyDigest(n)) return text;
+    return text.replace(/^weekly /, '');
+  }
+
   function dailyRoutine(n, what) {
-    if (n.briefingTime === 'none') return null;
-    return 'Weekdays at ' + formatTime(n.briefingTime) + ': ' + what;
+    var days = briefingDaysOf(n);
+    if (!days.length) return null;
+    return formatSchedule(days, formatTime(n.briefingTime)) + ': ' + what;
   }
+
+  function lowerSchedule(phrase) {
+    if (!phrase) return phrase;
+    var dayStart = DAYS.some(function (d) { return phrase.indexOf(d) === 0; });
+    if (dayStart) return phrase;
+    return phrase.charAt(0).toLowerCase() + phrase.slice(1);
+  }
+
   function weeklyRoutine(n, what) {
-    if (n.digestDay === 'none') return null;
-    return n.digestDay + 's at ' + digestTime(n) + ': ' + what;
+    var days = digestDaysOf(n);
+    if (!days.length) return null;
+    var parts = groupDaysByTime(n, days).map(function (g) {
+      return formatSchedule(g.days, g.timeLabel);
+    });
+    var when = parts[0] || '';
+    for (var i = 1; i < parts.length; i++) when += ' and ' + lowerSchedule(parts[i]);
+    return when + ': ' + digestWhat(n, what);
   }
 
   var GENERIC_ROLES = /^(owner|co-?owner|founder|co-?founder|manager|director|ceo|cto|cfo|coo|president|intern|employee|assistant|executive|lead|head|vp|vice president|partner)$/i;
@@ -393,10 +518,17 @@
     return label + CONTENT_NAME_SUFFIX;
   }
 
-  /** Weekly content roundup on Thursday at 9:00 AM, or Wednesday if Thursday is already the digest day. */
+  /** Weekly content roundup on Thursday at 9:00 AM, or another weekday if Thursday is already a digest day. */
   function contentRoutine(n) {
-    var day = n.digestDay === 'Thursday' ? 'Wednesday' : 'Thursday';
-    return day + 's at 9:00 AM: weekly content roundup';
+    var digestDays = digestDaysOf(n);
+    var preferred = ['Thursday', 'Wednesday', 'Tuesday', 'Friday', 'Monday'];
+    var day = 'Thursday';
+    for (var i = 0; i < preferred.length; i++) {
+      if (!has(digestDays, preferred[i])) { day = preferred[i]; break; }
+    }
+    var time = '09:00';
+    if (has(digestDays, day) && digestTimeOnDay(n, day) === '09:00') time = addMinutes('09:00', 30);
+    return day + 's at ' + formatTime(time) + ': weekly content roundup';
   }
 
   function likelyInvoicesCustomers(n) {
@@ -1054,7 +1186,7 @@
     }
 
     var saverOn = usageSaverOn(answers);
-    var hasTimes = n.briefingTime !== 'none' || n.digestDay !== 'none' || saverOn ||
+    var hasTimes = n.briefingTime !== 'none' || n.digestFreq !== 'none' || saverOn ||
       (bots || []).some(function (b) { return !!b.routine; });
     if (hasTimes) lines.push('Times are in my local time zone.');
     if (keptTemplates.length) {
@@ -1089,9 +1221,11 @@
       'o=' + n.tools.join('.'),
       'g=' + n.goals.join('.'),
       'b=' + n.briefingTime,
-      'd=' + n.digestDay,
+      'bd=' + (Array.isArray(n.briefingDays) ? n.briefingDays.join('.') : n.briefingDays),
+      'd=' + n.digestFreq,
       'x=' + n.extraAskFirst.join('.')
     ];
+    if (n.digestFreq === 'weekly' || n.digestFreq === 'custom') parts.push('dd=' + n.digestDays.join('.'));
     if (usageSaverOn(answers)) parts.push('u=1');
     return parts.join('&');
   }
@@ -1108,14 +1242,22 @@
       else if (k === 'o') out.tools = list;
       else if (k === 'g') out.goals = list;
       else if (k === 'b') out.briefingTime = v;
-      else if (k === 'd') out.digestDay = v;
+      else if (k === 'bd') out.briefingDays = (v === 'everyday' || v === 'weekdays') ? v : list;
+      else if (k === 'd') {
+        if (has(DIGEST_FREQS, v)) out.digestFreq = v;
+        else if (has(DAYS, v)) { out.digestFreq = 'weekly'; out.digestDays = [v]; }
+        else if (list.length) { out.digestFreq = list.length === 1 ? 'weekly' : 'custom'; out.digestDays = list; }
+        else out.digestFreq = 'none';
+      }
+      else if (k === 'dd') out.digestDays = list;
       else if (k === 'x') out.extraAskFirst = list;
       else if (k === 'u') out.usageSaver = (v === '1');
     });
     var n = normalize(out);
     return {
       tasks: n.tasks, tools: n.tools, goals: n.goals,
-      briefingTime: n.briefingTime, digestDay: n.digestDay, extraAskFirst: n.extraAskFirst,
+      briefingTime: n.briefingTime, briefingDays: n.briefingDays,
+      digestFreq: n.digestFreq, digestDays: n.digestDays, extraAskFirst: n.extraAskFirst,
       usageSaver: out.usageSaver === true
     };
   }
@@ -1124,11 +1266,11 @@
     MAX_BOTS: MAX_BOTS, MIN_BOTS: MIN_BOTS, BOT_NAME_MAX: BOT_NAME_MAX, MAX_TEMPLATE_EXTRAS: MAX_TEMPLATE_EXTRAS,
     USAGE_SAVER_PROMPT: USAGE_SAVER_PROMPT, USAGE_SAVER_LEAN: USAGE_SAVER_LEAN,
     usageSaverOn: usageSaverOn, crewCount: crewCount, mergeSmartCrew: mergeSmartCrew, isGenericRuleBot: isGenericRuleBot,
-    TASKS: TASKS, TOOLS: TOOLS, GOALS: GOALS, DAYS: DAYS,
+    TASKS: TASKS, TOOLS: TOOLS, GOALS: GOALS, DAYS: DAYS, WEEKDAYS: WEEKDAYS,
     contentFieldLabel: contentFieldLabel, hasContentField: hasContentField, contentIdeasFor: contentIdeasFor, contentUpdateExamples: contentUpdateExamples, contentBotName: contentBotName,
     LOCKED_ASK_FIRST: LOCKED_ASK_FIRST, EXTRA_ASK_FIRST: EXTRA_ASK_FIRST, CONNECTORS: CONNECTORS,
     ARCHETYPES: ARCHETYPES.map(function (a) { return { id: a.id, name: a.name }; }),
-    formatTime: formatTime, formatDate: formatDate, timeOptions: timeOptions,
+    formatTime: formatTime, formatDate: formatDate, formatSchedule: formatSchedule, timeOptions: timeOptions,
     looksLikeSecret: looksLikeSecret, cleanText: cleanText, normalize: normalize, hasAnySignal: hasAnySignal,
     recommend: recommend, recommendAllCustom: recommendAllCustom, suggestTemplates: suggestTemplates, refineTeamRoutines: refineTeamRoutines, formatTemplateLine: formatTemplateLine, templatePromptName: templatePromptName, connectionChecklist: connectionChecklist, buildPrompt: buildPrompt,
     encodeState: encodeState, decodeState: decodeState

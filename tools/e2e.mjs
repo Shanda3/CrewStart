@@ -150,8 +150,37 @@ async function run(width, height, tag) {
   await shot('2-personal');
   await click(page.getByRole('button', { name: 'Next' }));
 
-  // Step 3: briefing at 7:30 AM to match the bakery sample
+  // Step 3: briefing at 7:30 AM on weekdays; weekly digest on Monday (bakery sample)
   await page.locator('#briefingTime').selectOption('07:30');
+  const briefing = page.getByRole('group', { name: 'Briefing' });
+  const digests = page.getByRole('group', { name: 'Updates and digests' });
+  if (!(await briefing.getByRole('radio', { name: 'Weekdays' }).isChecked())) {
+    problems.push(`[${tag}] default briefing days should be Weekdays`);
+  }
+  if (!(await digests.getByRole('radio', { name: 'Weekly' }).isChecked())) {
+    problems.push(`[${tag}] default digest frequency should be Weekly`);
+  }
+  if (!(await page.locator('#digest-weekly-day').isVisible())) {
+    problems.push(`[${tag}] weekly day picker hidden`);
+  }
+  if (!(await page.getByRole('radio', { name: 'Monday' }).isChecked())) {
+    problems.push(`[${tag}] default weekly digest day should be Monday`);
+  }
+  await click(digests.getByRole('radio', { name: 'Custom days' }));
+  if (!(await page.locator('#digest-custom-days').isVisible())) {
+    problems.push(`[${tag}] custom day chips hidden after choosing Custom days`);
+  }
+  for (const day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']) {
+    const chip = page.locator('#digestCustomDays-' + day);
+    if ((await chip.count()) !== 1 || !(await chip.isVisible())) {
+      problems.push(`[${tag}] missing custom digest chip: ${day}`);
+    }
+  }
+  // Restore weekly Monday so the bakery prompt stays the sample.
+  await click(digests.getByRole('radio', { name: 'Weekly' }));
+  if (!(await page.getByRole('radio', { name: 'Monday' }).isChecked())) {
+    await click(page.getByRole('radio', { name: 'Monday' }));
+  }
   await shot('3-preferences');
   await click(page.getByRole('button', { name: 'See my team' }));
 

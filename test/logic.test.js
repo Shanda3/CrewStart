@@ -147,10 +147,114 @@ test('URL hash state round-trips selections and never includes free text', () =>
   assert.deepEqual(back.tasks, personas.smallBiz.tasks);
   assert.deepEqual(back.tools, personas.smallBiz.tools);
   assert.equal(back.briefingTime, '07:30');
-  assert.equal(back.digestDay, 'Monday');
+  assert.equal(back.briefingDays, 'weekdays');
+  assert.equal(back.digestFreq, 'weekly');
+  assert.deepEqual(back.digestDays, ['Monday']);
   assert.equal(back.usageSaver, false);
   assert.doesNotMatch(h, /(?:^|&)u=/);
   assert.deepEqual(L.decodeState('#t=evil.email&b=99:99').tasks, ['email']);
+});
+
+test('formatSchedule names days naturally', () => {
+  assert.equal(L.formatSchedule(L.DAYS, '7:30 AM'), 'Every day at 7:30 AM');
+  assert.equal(L.formatSchedule(L.WEEKDAYS, '8:00 AM'), 'Weekdays at 8:00 AM');
+  assert.equal(L.formatSchedule(['Saturday', 'Sunday'], '9:00 AM'), 'Weekends at 9:00 AM');
+  assert.equal(L.formatSchedule(['Monday'], '8:00 AM'), 'Mondays at 8:00 AM');
+  assert.equal(L.formatSchedule(['Monday', 'Thursday'], '8:00 AM'), 'Mondays and Thursdays at 8:00 AM');
+  assert.equal(L.formatSchedule(['Monday', 'Wednesday', 'Friday'], '8:00 AM'), 'Mondays, Wednesdays, and Fridays at 8:00 AM');
+});
+
+test('legacy digestDay answers still mean a weekly digest on that day', () => {
+  const n = L.normalize({ briefingTime: '08:00', digestDay: 'Friday' });
+  assert.equal(n.briefingDays, 'weekdays');
+  assert.equal(n.digestFreq, 'weekly');
+  assert.deepEqual(n.digestDays, ['Friday']);
+  const none = L.normalize({ briefingTime: 'none', digestDay: 'none' });
+  assert.equal(none.digestFreq, 'none');
+  assert.deepEqual(none.digestDays, []);
+});
+
+test('old share hashes with a single digest day still decode', () => {
+  const back = L.decodeState('#t=email&b=07:30&d=Monday&x=delete');
+  assert.deepEqual(back.tasks, ['email']);
+  assert.equal(back.briefingTime, '07:30');
+  assert.equal(back.briefingDays, 'weekdays');
+  assert.equal(back.digestFreq, 'weekly');
+  assert.deepEqual(back.digestDays, ['Monday']);
+  const none = L.decodeState('#b=none&d=none');
+  assert.equal(none.briefingTime, 'none');
+  assert.equal(none.digestFreq, 'none');
+  const friday = L.decodeState('#b=09:00&d=Friday');
+  assert.equal(friday.digestFreq, 'weekly');
+  assert.deepEqual(friday.digestDays, ['Friday']);
+});
+
+test('new share hash round-trips custom days and briefing day choices', () => {
+  const a = {
+    tasks: ['email', 'research'],
+    briefingTime: '07:30',
+    briefingDays: 'everyday',
+    digestFreq: 'custom',
+    digestDays: ['Monday', 'Thursday']
+  };
+  const h = L.encodeState(a);
+  assert.match(h, /(?:^|&)bd=everyday(?:&|$)/);
+  assert.match(h, /(?:^|&)d=custom(?:&|$)/);
+  assert.match(h, /(?:^|&)dd=Monday\.Thursday(?:&|$)/);
+  const back = L.decodeState('#' + h);
+  assert.equal(back.briefingTime, '07:30');
+  assert.equal(back.briefingDays, 'everyday');
+  assert.equal(back.digestFreq, 'custom');
+  assert.deepEqual(back.digestDays, ['Monday', 'Thursday']);
+  assert.doesNotMatch(h, /Owner|bakery|@/i);
+});
+
+test('briefing and digest wording follows the chosen days, and digests stagger on overlap', () => {
+  const custom = {
+    tasks: ['email', 'research'],
+    briefingTime: '08:00',
+    briefingDays: ['Monday', 'Thursday'],
+    digestFreq: 'custom',
+    digestDays: ['Monday', 'Thursday']
+  };
+  const bots = L.recommend(custom);
+  const inbox = bots.find((b) => b.id === 'inbox');
+  const research = bots.find((b) => b.id === 'research');
+  assert.equal(inbox.routine, 'Mondays and Thursdays at 8:00 AM: morning briefing of important email and today\'s calendar');
+  assert.equal(research.routine, 'Mondays and Thursdays at 8:30 AM: research digest');
+  const prompt = L.buildPrompt(custom, bots);
+  assert.match(prompt, /On your first run, create this routine for yourself: Mondays and Thursdays at 8:00 AM, morning briefing of important email and today's calendar\./);
+  assert.match(prompt, /On your first run, create this routine for yourself: Mondays and Thursdays at 8:30 AM, research digest\./);
+
+  const everyday = L.recommend({ tasks: ['email'], tools: ['gmail', 'gcal'], briefingTime: '07:30', briefingDays: 'everyday', digestFreq: 'none' });
+  assert.equal(everyday.find((b) => b.id === 'inbox').routine, 'Every day at 7:30 AM: morning briefing of important email and today\'s calendar');
+
+  const weekdayDigest = L.recommend({
+    tasks: ['research'], briefingTime: '08:00', briefingDays: 'weekdays', digestFreq: 'weekdays'
+  });
+  assert.equal(weekdayDigest.find((b) => b.id === 'research').routine, 'Weekdays at 8:30 AM: research digest');
+
+  const split = L.recommend({
+    tasks: ['research'], briefingTime: '08:00', briefingDays: 'weekdays', digestFreq: 'daily'
+  });
+  assert.equal(
+    split.find((b) => b.id === 'research').routine,
+    'Weekdays at 8:30 AM and weekends at 8:00 AM: research digest'
+  );
+});
+
+test('content roundup moves off the digest day, or staggers when every weekday is a digest day', () => {
+  const thursdayDigest = {
+    tasks: ['writing'], industry: 'Software', briefingTime: '08:00', digestDay: 'Thursday'
+  };
+  const moved = L.recommend(thursdayDigest).find((b) => b.id === 'writing');
+  assert.equal(moved.routine, 'Wednesdays at 9:00 AM: weekly content roundup');
+
+  const daily = {
+    tasks: ['writing'], industry: 'Software', briefingTime: 'none', digestFreq: 'daily'
+  };
+  const staggered = L.recommend(daily).find((b) => b.id === 'writing');
+  assert.equal(staggered.routine, 'Thursdays at 9:30 AM: weekly content roundup');
 });
 
 test('checklist: one row per service, required first, with per-bot usage', () => {
