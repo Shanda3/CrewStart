@@ -1,0 +1,20 @@
+{
+  "name": "crewstart",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Crewstart: unofficial community setup guide (static site + opt-in Worker).",
+  "scripts": {
+    "dev": "wrangler dev",
+    "db:migrate:local": "wrangler d1 migrations apply crewstart-db --local",
+    "test": "node --test test/logic.test.js test/config.test.js test/worker.test.mjs test/bot-icons.test.js",
+    "test:integration": "node test/integration.mjs",
+    "test:e2e": "node tools/e2e.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.165.0"
+  },
+  "allowScripts": {
+    "workerd@1.20261118.1": true,
+    "esbuild@0.28.2": true
+  }
+}

@@ -1,0 +1,186 @@
+/* Crewstart footer — drop-in component.
+   Classes are BEM-ish, prefixed cs-footer. Colors, type, space, and
+   motion come only from design tokens (css/tokens.css).
+   Dark is the default theme. Add data-theme="light" on <html> for light.
+   Layout uses a container query on .cs-footer so a 390 px frame on a
+   wide review page (and any narrow column) gets the stacked mobile layout,
+   with a matching max-width media query as a fallback.
+   November 20, 2026. */
+
+.cs-footer{
+  position:relative;
+  z-index:1;
+  border-top:1px solid var(--cs-border); /* --cs-color-border-subtle on dark */
+  background:transparent;
+  padding:0;
+  font-family:var(--cs-font-ui);
+  color:var(--cs-text-muted);
+  container-type:inline-size;
+  container-name:cs-footer;
+}
+
+.cs-footer__inner{
+  box-sizing:border-box;
+  max-width:var(--cs-content-max);
+  margin:0 auto;
+  padding:var(--cs-space-8) var(--cs-space-6) var(--cs-space-6);
+}
+
+/* Desktop: one row (credit left, links right), unofficial line below, left. */
+.cs-footer__row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:var(--cs-space-4) var(--cs-space-6);
+}
+
+.cs-footer__credit{
+  display:inline-flex;
+  align-items:center;
+  gap:var(--cs-space-3);
+  margin:0;
+  font-size:var(--cs-text-sm);
+  font-weight:400;
+  line-height:var(--cs-leading-snug);
+  color:var(--cs-text-muted);
+}
+
+.cs-footer__mark{
+  display:block;
+  width:28px;
+  height:28px;
+  flex:none;
+  border-radius:7px;
+}
+
+.cs-footer__links{
+  display:flex;
+  align-items:center;
+  gap:var(--cs-space-1);
+  margin:0;
+}
+
+.cs-footer__link,
+.cs-footer__social{
+  box-sizing:border-box;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:var(--cs-touch);
+  min-width:var(--cs-touch);
+  margin:0;
+  padding:0;
+  color:var(--cs-link); /* dark: --cs-color-accent #ff4d8a; light: ruby-600 #c40e53 */
+  background:transparent;
+  border:0;
+  border-radius:var(--cs-radius-sm);
+  font-family:inherit;
+  font-size:var(--cs-text-sm);
+  font-weight:500;
+  line-height:1;
+  letter-spacing:0;
+  text-decoration:none;
+  text-underline-offset:5px;
+  text-decoration-thickness:1.5px;
+  text-decoration-color:transparent;
+  cursor:pointer;
+  transition:
+    color var(--cs-dur) var(--cs-ease),
+    background-color var(--cs-dur) var(--cs-ease),
+    text-decoration-color var(--cs-dur) var(--cs-ease);
+}
+
+.cs-footer__link{
+  padding:0 var(--cs-space-3);
+}
+
+.cs-footer__link:hover,
+.cs-footer__link:focus-visible,
+.cs-footer__link.is-hover{
+  color:var(--cs-link-hover); /* dark: --cs-color-accent-hover #ff6f9f; light: ruby-700 */
+  text-decoration:underline;
+  text-decoration-color:color-mix(in srgb, var(--cs-link-hover) 80%, transparent);
+}
+
+.cs-footer__social:hover,
+.cs-footer__social:focus-visible,
+.cs-footer__social.is-hover{
+  color:var(--cs-link-hover);
+  background:var(--cs-accent-soft);
+}
+
+.cs-footer__link:focus-visible,
+.cs-footer__social:focus-visible,
+.cs-footer__link.is-focus,
+.cs-footer__social.is-focus{
+  outline:none;
+  box-shadow:var(--cs-ring); /* gold #e9b872 on dark; ruby-700 on light (gold fails 3:1 on mist) */
+}
+
+.cs-footer__icon{
+  display:block;
+  width:18px;
+  height:18px;
+}
+
+/* One muted unofficial line. The only place this sentence appears. */
+.cs-footer__note{
+  margin:var(--cs-space-3) 0 0;
+  font-size:13px;
+  font-weight:400;
+  line-height:1.45;
+  color:var(--cs-text-muted);
+}
+
+/* Mobile: stacked and centered — links, then credit, then the unofficial line.
+   Container query first, so a 390 px frame on a wide page still stacks. */
+@container cs-footer (max-width:760px){
+  .cs-footer__inner{
+    padding:var(--cs-space-6) var(--cs-space-4);
+  }
+  .cs-footer__row{
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    gap:var(--cs-space-1);
+  }
+  .cs-footer__links{
+    order:-1;
+  }
+  .cs-footer__credit{
+    justify-content:center;
+  }
+  .cs-footer__note{
+    margin-top:var(--cs-space-2);
+    text-align:center;
+  }
+}
+
+@media (max-width:760px){
+  .cs-footer__inner{
+    padding:var(--cs-space-6) var(--cs-space-4);
+  }
+  .cs-footer__row{
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    gap:var(--cs-space-1);
+  }
+  .cs-footer__links{
+    order:-1;
+  }
+  .cs-footer__credit{
+    justify-content:center;
+  }
+  .cs-footer__note{
+    margin-top:var(--cs-space-2);
+    text-align:center;
+  }
+}
+
+@media (prefers-reduced-motion:reduce){
+  .cs-footer__link,
+  .cs-footer__social{
+    transition:none;
+  }
+}

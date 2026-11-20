@@ -1,0 +1,79 @@
+/* Crewstart bot icons — static by default, no idle loop.
+   JS writes transform on .body (rotate) and .pupil (translate, viewBox units).
+   Hover / focus / tap plays a one-shot blink + hop + sparkle. */
+
+.bot-icon{
+  overflow:visible;
+  display:block;
+  width:40px;height:40px;
+  pointer-events:auto;
+}
+.bot-icon .body{
+  transform-box:fill-box;
+  transform-origin:50% 100%;
+}
+.bot-icon .pupil{transform-box:view-box}
+.bot-icon .eye{
+  transform-box:view-box;
+  transition:transform 70ms ease-out;
+}
+.bot-icon.blink .eye{transform:scaleY(.12)}
+.bot-icon .glint{
+  transform-box:fill-box;
+  transform-origin:center;
+}
+.bot-icon .pose{
+  transform-box:view-box;
+  transform-origin:20px 37.7px;
+}
+.bot-icon .shadow{
+  transform-box:view-box;
+  transform-origin:20px 37.7px;
+}
+
+/* Hover / focus / tap reaction: blink + 2-unit hop + sparkle pop, once, 560ms.
+   Hop easing: cubic-bezier(.34,1.56,.64,1)
+   Sparkle easing: cubic-bezier(.2,.7,.2,1) over 420ms
+   Blink: 130ms closed, 70ms ease-out */
+.bot-icon.react .pose{animation:cs-bot-hop 560ms cubic-bezier(.34,1.56,.64,1) 1}
+.bot-icon.react .shadow{animation:cs-bot-hop-shadow 560ms cubic-bezier(.34,1.56,.64,1) 1}
+.bot-icon.react .glint{animation:cs-bot-sparkle 420ms cubic-bezier(.2,.7,.2,1) 1}
+
+@keyframes cs-bot-hop{
+  0%{transform:none}
+  18%{transform:scale(1.08,.88)}
+  45%{transform:translateY(-2px) scale(.96,1.06)}
+  72%{transform:translateY(0) scale(1.05,.94)}
+  100%{transform:none}
+}
+@keyframes cs-bot-hop-shadow{
+  0%,100%{transform:scaleX(1);opacity:.28}
+  45%{transform:scaleX(.72);opacity:.16}
+}
+@keyframes cs-bot-sparkle{
+  0%,100%{transform:scale(1)}
+  40%{transform:scale(1.45)}
+}
+
+.bot-icon-hit{
+  display:inline-grid;
+  place-items:center;
+  width:44px;height:44px;
+  border-radius:12px;
+  flex:none;
+  background:transparent;
+  border:0;
+  padding:0;
+  cursor:pointer;
+}
+.bot-icon-hit:focus{outline:none}
+.bot-icon-hit:focus-visible{box-shadow:var(--cs-ring,0 0 0 2px #111418,0 0 0 5px #E9B872)}
+
+@media (prefers-reduced-motion: reduce){
+  .bot-icon .pose,
+  .bot-icon .shadow,
+  .bot-icon .glint{animation:none!important}
+  .bot-icon .body,
+  .bot-icon .pupil,
+  .bot-icon .eye{transform:none!important;transition:none!important}
+}

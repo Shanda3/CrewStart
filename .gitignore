@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+tools/node_modules/
+
+# Local secrets and env (Cloudflare test keys live only in .dev.vars, never committed)
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+*.local
+
+# Local Wrangler / D1 state
+.wrangler/
+*.sqlite
+*.sqlite3
+
+# Large generated reports
+shots/*lighthouse*
+
+# Local screenshot and audit runs (not part of the app)
+shots/live/
+shots/local-privacy/
+*.bundle
+.DS_Store
