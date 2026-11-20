@@ -48,8 +48,9 @@ Change `APP_NAME` in `public/brand.js` and `"name"` in `wrangler.jsonc`; static 
   depends on it. `POST /api/subscribe` is unchanged. The share link (URL hash) carries selections only, never
   the email, names, or which templates you removed.
 - Suggested templates (always including Dr. Eggbot, plus up to three matches) count toward the hard cap of 10.
-  The prompt asks your bot to look them up in Bot templates and offer an import link; nothing is imported from
-  this site, and there are no `grokbot://` links.
+  Usage Saver is an optional add-on and never counts toward that cap, so it can be turned on even when the crew
+  is already at 10. The prompt asks your bot to look templates up in Bot templates and offer an import link;
+  nothing is imported from this site, and there are no `grokbot://` links.
 - Marketing consent is a separate, optional, unchecked box with the brief's exact text, stored as
   `marketing_consent` 0/1 (plus the consent text, version, and time only when ticked). A repeat submission can
   opt in but never silently opts out. Role/industry are sent only if their own separate box is ticked.

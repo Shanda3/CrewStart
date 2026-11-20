@@ -156,13 +156,7 @@
     } else if (t.id === 'briefingTime' || t.id === 'digestDay') {
       a[t.id] = t.value; updateHash();
     } else if (t.id === 'usage-saver') {
-      var without = activeBots().length + activeTemplates().length;
-      if (t.checked && without >= L.MAX_BOTS) {
-        t.checked = false;
-        a.usageSaver = false;
-      } else {
-        a.usageSaver = !!t.checked;
-      }
+      a.usageSaver = !!t.checked;
       updateHash();
       renderReview();
     }
@@ -220,8 +214,7 @@
       state.bots,
       state.templates,
       include ? (state.smartBots || []) : [],
-      include ? (state.smartTemplates || []) : [],
-      state.answers.usageSaver
+      include ? (state.smartTemplates || []) : []
     );
   }
   function activeTemplates() { return activeCrew().templates; }
@@ -246,13 +239,9 @@
     state.allTemplates = L.suggestTemplates(state.answers);
     state.templates = state.allTemplates.slice();
     state.allCustom = L.recommendAllCustom(state.answers);
-    var reserved = state.answers.usageSaver ? 1 : 0;
-    var slots = Math.max(1, L.MAX_BOTS - state.templates.length - reserved);
+    var slots = Math.max(1, L.MAX_BOTS - state.templates.length);
     state.allBots = state.allCustom.slice(0, slots);
     state.bots = state.allBots.slice();
-    if (state.answers.usageSaver && state.bots.length + state.templates.length >= L.MAX_BOTS) {
-      state.answers.usageSaver = false;
-    }
     renderReview();
   }
   function svgEl(inner) {
@@ -263,10 +252,10 @@
   function countPhrase(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
   function renderCrewCount() {
     var saver = !!state.answers.usageSaver;
-    var c = activeBots().length + (saver ? 1 : 0), tpl = activeTemplates().length, total = c + tpl;
+    var c = activeBots().length, tpl = activeTemplates().length, total = c + tpl;
     var mid = countPhrase(c, 'custom bot', 'custom bots');
     if (tpl || state.allTemplates.length || (state.smartTemplates && state.smartTemplates.length)) mid += ' + ' + countPhrase(tpl, 'template', 'templates');
-    $('#crew-count-text').innerHTML = 'Your crew: <b>' + mid + '</b> (' + total + ' of ' + L.MAX_BOTS + ')';
+    $('#crew-count-text').innerHTML = 'Your crew: <b>' + mid + '</b> (' + total + ' of ' + L.MAX_BOTS + ')' + (saver ? ' + Usage Saver' : '');
     var meter = $('#crew-meter');
     meter.textContent = '';
     var i;
@@ -276,17 +265,12 @@
   }
   function renderUsageSaver() {
     var input = $('#usage-saver');
-    var note = $('#usage-saver-note');
     var card = $('#usage-saver-card');
-    if (!input || !note || !card) return;
+    if (!input || !card) return;
     var on = !!state.answers.usageSaver;
-    var without = activeBots().length + activeTemplates().length;
-    var full = !on && without >= L.MAX_BOTS;
     input.checked = on;
-    input.disabled = full;
-    note.hidden = !full;
+    input.disabled = false;
     card.classList.toggle('on', on);
-    card.classList.toggle('full', full);
   }
   function renderReview() {
     L.refineTeamRoutines(activeBots());
@@ -450,8 +434,7 @@
     state.bots.forEach(function (b) { names[b.id] = b.name; });
     var have = {};
     state.bots.forEach(function (b) { have[b.id] = true; });
-    var reserved = state.answers.usageSaver ? 1 : 0;
-    var slots = Math.max(1, L.MAX_BOTS - state.templates.length - reserved);
+    var slots = Math.max(1, L.MAX_BOTS - state.templates.length);
     state.allBots.forEach(function (b) {
       if (state.bots.length >= slots) return;
       if (have[b.id]) {
@@ -501,7 +484,7 @@
     list.textContent = '';
     if (cluster) cluster.textContent = '';
     var total = crewTotal();
-    if (count) count.textContent = total + ' of ' + L.MAX_BOTS;
+    if (count) count.textContent = total + ' of ' + L.MAX_BOTS + (state.answers.usageSaver ? ' + Usage Saver' : '');
 
     var rows = [];
     promptBots().forEach(function (b, i) {

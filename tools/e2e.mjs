@@ -259,18 +259,20 @@ async function run(width, height, tag) {
   await shot('4-smart-fallback');
   await page.unroute('**/api/smart');
 
-  // Usage Saver: offered, off by default, counts toward the cap when on
+  // Usage Saver: offered, off by default, never counts toward the 10-bot cap
   const saver = page.locator('#usage-saver');
   if (!(await page.getByRole('heading', { name: 'Usage Saver' }).isVisible())) problems.push(`[${tag}] Usage Saver heading missing`);
   if (!(await page.getByText('Keeps your plan usage down. Checks weekly which bots and routines use the most and suggests cuts for you to approve.').isVisible())) {
     problems.push(`[${tag}] Usage Saver card copy`);
   }
   if (await saver.isChecked()) problems.push(`[${tag}] Usage Saver pre-checked`);
-  if (await saver.isDisabled()) problems.push(`[${tag}] Usage Saver disabled with room in the crew`);
+  if (await saver.isDisabled()) problems.push(`[${tag}] Usage Saver disabled`);
   await saver.check();
-  const crewOn = crew + 1;
   const crewTextOn = await page.locator('#crew-count-text').textContent();
-  if (!new RegExp(`${crewOn} of 10`).test(crewTextOn)) problems.push(`[${tag}] crew text after Usage Saver: ${crewTextOn}`);
+  if (!new RegExp(`${crew} of 10`).test(crewTextOn) || !/\+ Usage Saver/.test(crewTextOn)) {
+    problems.push(`[${tag}] crew text after Usage Saver: ${crewTextOn}`);
+  }
+  if (await saver.isDisabled()) problems.push(`[${tag}] Usage Saver disabled after turning on`);
   await shot('4-review-saver');
 
   await click(page.getByRole('button', { name: 'Build my prompt' }));

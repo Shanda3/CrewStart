@@ -357,7 +357,7 @@ test('Usage Saver is off by default and not in the prompt until opted in', () =>
   const on = L.buildPrompt(onAnswers, bots, tpls);
   assert.ok(on.includes((bots.length + 1) + '. ' + L.USAGE_SAVER_PROMPT));
   assert.ok(on.includes(L.USAGE_SAVER_LEAN));
-  assert.match(on, /Keep my new bots to 9 in total \(templates plus custom bots\), not counting this bot\./);
+  assert.match(on, /Keep my new bots to 8 in total \(templates plus custom bots\), not counting this bot\./);
   const offAgain = L.buildPrompt(Object.assign({}, personas.smallBiz, { usageSaver: false }), bots, tpls);
   assert.doesNotMatch(offAgain, /Usage Saver:/);
   assert.doesNotMatch(offAgain, /Keep every routine lean/);
@@ -373,7 +373,26 @@ test('Usage Saver is a share-hash selection and does not appear when off', () =>
   assert.equal(back.usageSaver, true);
   assert.deepEqual(back.tasks, personas.smallBiz.tasks);
   assert.equal(L.decodeState('#' + off).usageSaver, false);
-  assert.equal(L.crewCount(L.recommend(personas.smallBiz), L.suggestTemplates(personas.smallBiz), { usageSaver: true }), 9);
+  assert.equal(L.crewCount(L.recommend(personas.smallBiz), L.suggestTemplates(personas.smallBiz), { usageSaver: true }), 8);
+});
+
+test('Usage Saver is an add-on and never counts toward the 10-bot cap', () => {
+  const bots = L.recommend(personas.everything);
+  const tpls = L.suggestTemplates(personas.everything);
+  assert.equal(bots.length + tpls.length, 10);
+  assert.equal(L.crewCount(bots, tpls), 10);
+  assert.equal(L.crewCount(bots, tpls, { usageSaver: true }), 10);
+  assert.equal(L.crewCount(bots, tpls, { usageSaver: false }), 10);
+  const on = L.buildPrompt(Object.assign({}, personas.everything, { usageSaver: true }), bots, tpls);
+  assert.ok(on.includes((bots.length + 1) + '. ' + L.USAGE_SAVER_PROMPT));
+  assert.ok(on.includes(L.USAGE_SAVER_LEAN));
+  assert.match(on, /Keep my new bots to 10 in total \(templates plus custom bots\), not counting this bot\./);
+  const mergedOn = L.mergeSmartCrew(bots, tpls, [], [], true);
+  const mergedOff = L.mergeSmartCrew(bots, tpls, [], [], false);
+  assert.equal(mergedOn.bots.length + mergedOn.templates.length, 10);
+  assert.equal(mergedOff.bots.length + mergedOff.templates.length, 10);
+  assert.deepEqual(mergedOn.bots.map((b) => b.id), mergedOff.bots.map((b) => b.id));
+  assert.deepEqual(mergedOn.templates.map((t) => t.id), mergedOff.templates.map((t) => t.id));
 });
 
 test('location appears in About me and is never in the share hash', () => {

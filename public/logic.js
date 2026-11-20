@@ -214,16 +214,16 @@
     var ga = overlapGroup(a), gb = overlapGroup(b);
     return !!(ga && ga === gb);
   }
-  function mergeSmartCrew(ruleBots, ruleTemplates, smartBots, smartTemplates, usageSaver) {
+  function mergeSmartCrew(ruleBots, ruleTemplates, smartBots, smartTemplates) {
     function kept(list) { return (list || []).filter(function (x) { return x && !x.removed; }); }
     ruleBots = kept(ruleBots);
     ruleTemplates = kept(ruleTemplates);
     smartBots = kept(smartBots);
     smartTemplates = kept(smartTemplates);
-    var saver = usageSaver ? 1 : 0;
     var tpls = [];
     var bots = [];
-    function room() { return MAX_BOTS - saver - tpls.length - bots.length; }
+    // Usage Saver is an optional add-on and never reserves a slot under the 10-bot cap.
+    function room() { return MAX_BOTS - tpls.length - bots.length; }
     function addTpl(t) {
       if (!t || tpls.some(function (x) { return sameTemplate(x, t); })) return false;
       if (room() <= 0) return false;
@@ -257,8 +257,9 @@
     return { bots: bots, templates: tpls };
   }
 
-  function crewCount(bots, templates, answers) {
-    return (bots ? bots.length : 0) + (templates ? templates.length : 0) + (usageSaverOn(answers) ? 1 : 0);
+  /** Custom bots + templates only. Usage Saver is an add-on and never counts toward MAX_BOTS. */
+  function crewCount(bots, templates) {
+    return (bots ? bots.length : 0) + (templates ? templates.length : 0);
   }
 
   /* ---------- Connector resolution ---------- */
@@ -1057,7 +1058,7 @@
       (bots || []).some(function (b) { return !!b.routine; });
     if (hasTimes) lines.push('Times are in my local time zone.');
     if (keptTemplates.length) {
-      lines.push(formatTemplateLine(keptTemplates, crewCount(bots, keptTemplates, answers)));
+      lines.push(formatTemplateLine(keptTemplates, crewCount(bots, keptTemplates)));
     }
     lines.push('Create these custom bots, one job each:');
     bots.forEach(function (b, i) {
